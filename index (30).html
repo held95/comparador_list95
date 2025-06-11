@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cross X Tasy - Ajuste Excel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Cross X Tasy</h1>
+    <input type="file" id="inputExcel" accept=".xlsx" />
+    <div class="buttons">
+      <button id="btnProcessar" disabled>Gerar Excel</button>
+    </div>
+    <a id="downloadLink" style="display:none;"></a>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/unidecode@1.1.0/lib/unidecode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+  <script src="script.js"></script>
+</body>
+</html>
