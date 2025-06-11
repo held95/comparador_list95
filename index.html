@@ -4,7 +4,79 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Cross X Tasy - Ajuste Excel</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #b3cde0, #d6eaf8); /* fundo mais claro */
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      padding: 2.5rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+
+    input[type="file"] {
+      margin: 1rem 0;
+      font-size: 1rem;
+    }
+
+    .buttons {
+      margin-top: 1.5rem;
+    }
+
+    .buttons button {
+      background-color: #6c63ff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .buttons button:hover:not(:disabled) {
+      background-color: #574fd6;
+    }
+
+    .buttons button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #downloadLink {
+      display: inline-block;
+      margin-top: 1.5rem;
+      text-decoration: none;
+      background-color: #28a745;
+      color: white;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+
+    #downloadLink:hover {
+      background-color: #218838;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -15,9 +87,108 @@
     </div>
     <a id="downloadLink" style="display:none;"></a>
   </div>
+
+  <!-- Bibliotecas -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/unidecode@1.1.0/lib/unidecode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
-  <script src="script.js"></script>
+
+  <script>
+    const inputExcel = document.getElementById('inputExcel');
+    const btnProcessar = document.getElementById('btnProcessar');
+    const downloadLink = document.getElementById('downloadLink');
+    const LIMIAR = 0.9;
+
+    let workbook;
+
+    function normalizar(nome) {
+      let s = nome.toLowerCase();
+      s = unidecode(s);
+      s = s.replace(/[:]/g, ' ');
+      s = s.replace(/[^a-z\s]/g, '');
+      s = s.replace(/\s+/g, ' ');
+      s = s.replace(/^(rn|rn i+|desconhecido|de|do|da|dos|das)\s+/g, '');
+      return s.trim();
+    }
+
+    function fuseScore(a, b) {
+      const fuse = new Fuse([b], {
+        includeScore: true,
+        useExtendedSearch: false,
+        isCaseSensitive: false,
+        tokenize: true
+      });
+      const res = fuse.search(a);
+      return res.length ? (1 - res[0].score) : 0;
+    }
+
+    inputExcel.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const data = new Uint8Array(evt.target.result);
+        workbook = XLSX.read(data, { type: 'array' });
+        btnProcessar.disabled = false;
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    btnProcessar.addEventListener('click', () => {
+      if (!workbook) return;
+
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+
+      const colA = json.map(r => (r[0] || '').toString().trim()).filter(v => v);
+      const colB = json.map(r => (r[1] || '').toString().trim()).filter(v => v);
+
+      const normA = colA.map(normalizar);
+      const normB = colB.map(normalizar);
+
+      const results = [];
+
+      for (let i = 0; i < colA.length; i++) {
+        const originalA = colA[i];
+        const normalizedA = normA[i];
+        let bestB = '';
+        let bestScore = 0;
+
+        for (let j = 0; j < colB.length; j++) {
+          const originalB = colB[j];
+          const normalizedB = normB[j];
+          const score = fuseScore(normalizedA, normalizedB);
+
+          if (
+            score > bestScore ||
+            (score === bestScore && /rn|desconhecido/.test(originalB.toLowerCase()))
+          ) {
+            bestScore = score;
+            bestB = originalB;
+          }
+        }
+
+        results.push([originalA, '=', bestScore >= LIMIAR ? bestB : '']);
+      }
+
+      const usadosB = new Set(results.filter(r => r[2]).map(r => r[2]));
+      colB.forEach(nb => {
+        if (!usadosB.has(nb)) {
+          results.push(['', '=', nb]);
+        }
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet([["Coluna A", "=", "Coluna B"], ...results]);
+      const wbout = XLSX.write({ Sheets: { Resultado: ws }, SheetNames: ['Resultado'] }, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+
+      downloadLink.href = url;
+      downloadLink.download = 'Resultado_Cross_X_Tasy.xlsx';
+      downloadLink.textContent = '⬇️ Baixar resultado';
+      downloadLink.style.display = 'inline-block';
+    });
+  </script>
 </body>
 </html>
