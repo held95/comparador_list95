@@ -1,0 +1,87 @@
+body {
+  background-color: #009961;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.form-container {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  width: 350px;
+}
+
+.form-container h2 {
+  text-align: center;
+}
+
+input {
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+button {
+  background-color: #009961;
+  color: white;
+  padding: 12px;
+  border: none;
+  width: 100%;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px;
+  background-color: #eee;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid #ccc;
+}
+
+.tab.active {
+  background-color: white;
+  font-weight: bold;
+  border-bottom: none;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-group label {
+  background: #f2f2f2;
+  padding: 6px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+}
