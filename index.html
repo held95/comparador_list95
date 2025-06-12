@@ -9,7 +9,7 @@
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 2rem;
-      background: linear-gradient(to right, #e0f7ff, #cdefff); /* azul clarinho */
+      background: linear-gradient(to right, #e0f7ff, #cdefff);
     }
 
     .container {
@@ -98,8 +98,32 @@
       s = s.replace(/[:]/g, ' ');
       s = s.replace(/[^a-z\s]/g, '');
       s = s.replace(/\s+/g, ' ');
-      s = s.replace(/^(rn|rn i+|desconhecido|de|do|da|dos|das)\s+/g, '');
+      s = s.replace(/^(rn|rn i+|rn ii+|desconhecido|de|do|da|dos|das)\s+/g, '');
       return s.trim();
+    }
+
+    function formatarNome(original) {
+      let nome = original.trim();
+
+      // Extrai prefixos tipo RN, RN I, RN II, etc.
+      const rnMatch = nome.match(/RN\s*(?:DE)?\s*[:]*\s*(RN\s*[IVX]+|I+)?\s*/i);
+      let prefixo = '';
+
+      if (rnMatch) {
+        let tipo = rnMatch[1]?.trim();
+        if (tipo) {
+          tipo = tipo.replace(/\s+/g, ' ').toUpperCase();
+          prefixo = `Rn ${tipo.charAt(0) + tipo.slice(1).toLowerCase()} de `;
+        } else {
+          prefixo = 'Rn ';
+        }
+        nome = nome.replace(rnMatch[0], '').trim();
+      }
+
+      // Capitaliza corretamente o nome
+      nome = nome.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+      return prefixo + nome;
     }
 
     function fuseScore(a, b) {
@@ -112,66 +136,68 @@
       const res = fuse.search(a);
       return res.length ? (1 - res[0].score) : 0;
     }
-btnProcessar.addEventListener('click', () => {
-  if (!workbook) return;
 
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+    btnProcessar.addEventListener('click', () => {
+      if (!workbook) return;
 
-  if (!json.length || !json[0].length) {
-    alert("O Excel carregado está vazio ou não possui dados nas colunas A e B.");
-    return;
-  }
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
 
-  const colA = json.map(r => (r[0] || '').toString().trim()).filter(v => v);
-  const colB = json.map(r => (r[1] || '').toString().trim()).filter(v => v);
-
-  const normA = colA.map(normalizar);
-  const normB = colB.map(normalizar);
-
-  const substituicoes = new Map([
-    [normalizar("RN DE:BIANCA PRADO FERREIRA PEDRA"), "Rn de Bianca Prado Ferreira Pedra"],
-    [normalizar("SANDRA TAVARES NUNES"), "Sandra Tavares Nune"]
-  ]);
-
-  const results = [];
-
-  for (let i = 0; i < colA.length; i++) {
-    const na = colA[i], nna = normA[i];
-    let bestB = '', bestScore = 0;
-
-    if (substituicoes.has(nna)) {
-      bestB = substituicoes.get(nna);
-      bestScore = 1;
-    } else {
-      for (let j = 0; j < colB.length; j++) {
-        const nb = colB[j], nnb = normB[j];
-        const score = fuseScore(nna, nnb);
-        if (score > bestScore || (score === bestScore && /rn|desconhecido/.test(nb.toLowerCase()))) {
-          bestScore = score;
-          bestB = nb;
-        }
+      if (!json.length || !json[0].length) {
+        alert("O Excel carregado está vazio ou não possui dados nas colunas A e B.");
+        return;
       }
-    }
 
-    results.push([na, '=', bestScore >= LIMIAR ? bestB : '']);
-  }
+      const colA = json.map(r => (r[0] || '').toString().trim()).filter(v => v);
+      const colB = json.map(r => (r[1] || '').toString().trim()).filter(v => v);
 
-  const usadosB = new Set(results.filter(r => r[2]).map(r => r[2]));
-  colB.forEach(nb => {
-    if (!usadosB.has(nb)) results.push(['', '=', nb]);
-  });
+      const normA = colA.map(normalizar);
+      const normB = colB.map(normalizar);
 
-  const ws = XLSX.utils.aoa_to_sheet([["Coluna A", "=", "Coluna B"], ...results]);
-  const wbout = XLSX.write({ Sheets: { 'Resultado': ws }, SheetNames: ['Resultado'] }, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/octet-stream' });
-  const url = URL.createObjectURL(blob);
+      const substituicoes = new Map([
+        [normalizar("RN DE:BIANCA PRADO FERREIRA PEDRA"), "Rn de Bianca Prado Ferreira Pedra"],
+        [normalizar("SANDRA TAVARES NUNES"), "Sandra Tavares Nune"]
+      ]);
 
-  downloadLink.href = url;
-  downloadLink.download = 'Resultado_Cross_X_Tasy.xlsx';
-  downloadLink.textContent = '⬇️ Baixar resultado';
-  downloadLink.style.display = 'block';
+      const results = [];
 
+      for (let i = 0; i < colA.length; i++) {
+        const na = colA[i], nna = normA[i];
+        let bestB = '', bestScore = 0;
+
+        if (substituicoes.has(nna)) {
+          bestB = substituicoes.get(nna);
+          bestScore = 1;
+        } else {
+          for (let j = 0; j < colB.length; j++) {
+            const nb = colB[j], nnb = normB[j];
+            const score = fuseScore(nna, nnb);
+            if (score > bestScore || (score === bestScore && /rn|desconhecido/.test(nb.toLowerCase()))) {
+              bestScore = score;
+              bestB = nb;
+            }
+          }
+        }
+
+        const formatado = bestScore >= LIMIAR ? formatarNome(bestB) : '';
+        results.push([na, '=', formatado]);
+      }
+
+      const usadosB = new Set(results.filter(r => r[2]).map(r => r[2]));
+      colB.forEach(nb => {
+        const formatado = formatarNome(nb);
+        if (!usadosB.has(formatado)) results.push(['', '=', formatado]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet([["Coluna A", "=", "Coluna B"], ...results]);
+      const wbout = XLSX.write({ Sheets: { 'Resultado': ws }, SheetNames: ['Resultado'] }, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+
+      downloadLink.href = url;
+      downloadLink.download = 'Resultado_Cross_X_Tasy.xlsx';
+      downloadLink.textContent = '⬇️ Baixar resultado';
+      downloadLink.style.display = 'block';
     });
   </script>
 </body>
